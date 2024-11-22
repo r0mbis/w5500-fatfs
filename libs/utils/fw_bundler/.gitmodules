@@ -1,0 +1,3 @@
+[submodule "src/ecdsautil/libuecc"]
+	path = src/ecdsautil/libuecc
+	url = https://github.com/neocturne/libuecc

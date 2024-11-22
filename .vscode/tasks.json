@@ -1,0 +1,83 @@
+{
+  "version": "2.0.0",
+  "tasks": [
+    {
+      "label": "Build",
+      "type": "shell",
+      // "command": "TARGET=${input:targetId} DEBUG=0 make -s -j 4",
+      "command": "DEBUG=1 make -s -j 6",
+      "presentation": {
+        "echo": false,
+        "focus": false,
+        "group": "grp1",
+        "panel": "shared"
+      },
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^(.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+      },
+        "background": {
+            "activeOnStart": true,
+            "beginsPattern": ".",
+            "endsPattern": "."
+        },
+      },
+    },
+    {
+      "label": "Flash",
+      "type": "shell",
+      "command": "make flash",
+      "presentation": {
+        "echo": false,
+        "focus": false,
+        "group": "grp1",
+        "panel": "shared"
+      },
+      "problemMatcher": {
+        "pattern": {
+          "regexp": "^(.*):(\\d+):(\\d+):\\s+(warning|error):\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+      },
+        "background": {
+            "activeOnStart": true,
+            "beginsPattern": ".",
+            "endsPattern": "."
+        },
+      },
+    },
+    {
+      "label": "Build and flash",
+      "dependsOn": ["Build", "Flash"],
+      "dependsOrder": "sequence",
+      "group": {
+        "kind": "build",
+        "isDefault": true
+      },
+      "presentation": {
+        "echo": false,
+        "focus": false,
+      },
+    },
+  ],
+  // "inputs": [
+  //   {
+  //     "id": "targetId",
+  //     "type": "pickString",
+  //     "description": "Pick target.",
+  //     "options": [
+  //       "nucleo_h743zi",
+  //       "nucleo_f429zi",
+  //     ],
+
+  //   }
+  // ]
+}

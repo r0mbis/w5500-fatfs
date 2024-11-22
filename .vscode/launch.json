@@ -1,0 +1,46 @@
+{
+    "version": "0.2.0",
+    "configurations": [       
+        {
+            "cwd": "${workspaceFolder}",
+            "executable": ".build/${input:targetId}/stm32_test_driver.elf",
+            "name": "Cortex Debug ",
+            "request": "launch",
+            "type": "cortex-debug",
+            "servertype": "openocd",
+            "interface": "swd",
+            "svdFile": "${workspaceRoot}/libs/targets/${input:targetId}/dbg/cmsis.svd",
+            "configFiles": [
+                "interface/stlink.cfg",
+                "${workspaceRoot}/libs/targets/${input:targetId}/dbg/openocd.cfg"
+            ],
+            "openOCDLaunchCommands": ["reset_config none separate", "init"],
+            "preRestartCommands": [
+                "load",
+                "enable breakpoint",
+                "monitor reset"
+            ],
+            "showDevDebugOutput": false,
+            "armToolchainPath": "/opt/gcc-arm-none-eabi/bin",
+            "rtos": "FreeRTOS"
+          
+       }
+    ],
+    "inputs": [
+        {
+          "id": "targetId",
+          "type": "pickString",
+          "description": "Pick target.",
+          "options": [
+            "nucleo_h723zg",
+            "nucleo_h743zi",
+            "nucleo_f429zi",
+            "nucleo_f401re",
+            "stm32g431",
+            "stm32g483",
+            "discovery_f407vg",
+          ],
+    
+        }
+      ]
+}
