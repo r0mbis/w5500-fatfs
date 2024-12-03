@@ -17,11 +17,13 @@ C_SOURCES	+= 	$(wildcard $(APP_DIR)/W5500/Internet/DHCP/*.c)
 C_SOURCES	+= 	$(wildcard $(APP_DIR)/W5500/Internet/ICMP/*.c)
 C_SOURCES	+= 	$(wildcard $(APP_DIR)/W5500/Internet/FTPServer/*.c)
 C_SOURCES	+= 	$(wildcard $(APP_DIR)/SPI_SDcard/*.c)
+C_SOURCES	+= 	$(wildcard $(APP_DIR)/FatFs_file_handler/*.c)
 C_INCLUDES	+= 	-I$(APP_DIR)/W5500/Ethernet/
 C_INCLUDES	+= 	-I$(APP_DIR)/W5500/Internet/DHCP/
 C_INCLUDES	+= 	-I$(APP_DIR)/W5500/Internet/ICMP/
 C_INCLUDES	+= 	-I$(APP_DIR)/W5500/Internet/FTPServer/
 C_INCLUDES	+= 	-I$(APP_DIR)/SPI_SDcard/
+C_INCLUDES	+= 	-I$(APP_DIR)/FatFs_file_handler/
 
 # protobuf 
 ifeq ($(USE_PROTOBUF), 1)

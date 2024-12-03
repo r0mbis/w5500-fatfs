@@ -9,7 +9,7 @@
 extern "C" {
 #endif
 
-#define LOG_LEVEL_DEFAULT 4
+#define LOG_LEVEL_DEFAULT 5
 
 #ifndef LOG_LEVEL
 #define LOG_LEVEL LOG_LEVEL_DEFAULT

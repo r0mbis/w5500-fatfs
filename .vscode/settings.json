@@ -50,7 +50,11 @@
         "list.h": "c",
         "ping.h": "c",
         "w5500.h": "c",
-        "string.h": "c"
+        "string.h": "c",
+        "crc.h": "c",
+        "semaphore.h": "c",
+        "spi_sdcard.h": "c",
+        "fatfs_add.h": "c"
     },
     "git.ignoreLimitWarning": true,
     "cortex-debug.variableUseNaturalFormat": false

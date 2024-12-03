@@ -75,6 +75,7 @@ void Error_Handler(void);
 #define LED_PORT GPIOD
 
 #define ETH_TAG "ETH"
+#define FAT_TAG "FAT"
 /* USER CODE END Private defines */
 
 #ifdef __cplusplus

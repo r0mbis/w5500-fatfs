@@ -318,7 +318,7 @@ DWORD get_fattime (void)
 		RTC_buf |= (DWORD)(RTC_RealTime.Seconds > 29 ? 29 : RTC_RealTime.Seconds);
 		return RTC_buf;
 	#else
-		RTC_buf |= ((DWORD)(2020 - 1980)) << 25;
+		RTC_buf |= ((DWORD)(2024 - 1980)) << 25;
 		RTC_buf |= ((DWORD)(9)) << 21;
 		RTC_buf |= ((DWORD)(16)) << 16;
 		RTC_buf |= ((DWORD)(14)) << 11;

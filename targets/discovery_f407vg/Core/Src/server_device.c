@@ -125,6 +125,20 @@ void server_loop(socket_data_t *socket_info)
     }
 }
 
+// void udp_loop(socket_data_t *socket_info)
+// {
+//     uint16_t size = 0;
+//     switch (getSn_SR(socket_info->socket_id))
+//     {
+//     case SOCK_UDP:
+//         if (size = getSn_RX_RSR(socket_info->socket_id) > 0)
+//         break;
+    
+//     default:
+//         break;
+//     }
+// }
+
 void control_task(void *params)
 {
     device_data_t *device_data_ptr = (device_data_t *)params;
