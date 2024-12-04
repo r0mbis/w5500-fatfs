@@ -140,11 +140,11 @@ int main(void)
   MX_DMA_Init();
   MX_USART2_UART_Init();
   MX_SPI1_Init();
-  MX_SPI2_Init();
+  //MX_SPI2_Init();
   //SPI_SD_Init();
   /* USER CODE BEGIN 2 */
   sys_log_init();
-  //InitW5500();
+  InitW5500();
   device_data.ip_assigned_sem = xSemaphoreCreateCounting((UBaseType_t)0xFFFFFFFF, (UBaseType_t)0U);
   //device_data.ping_sem = xSemaphoreCreateBinary();
   device_data.send_queue = xQueueCreate((UBaseType_t)10, sizeof(message_t));
@@ -156,12 +156,12 @@ int main(void)
   sd_mutex = xSemaphoreCreateMutex();
 
   log_i(ETH_TAG, "Creating tasks ...\r\n");
-  //xTaskCreate(dhcp_task, "DHCP_Task", DHCP_TASK_STACK_SIZE, (void*)&device_data, DHCP_TASK_PRIORITY, &dhcp_handle);
-  //xTaskCreate(device_task, "Device_Task", DEVICE_TASK_STACK_SIZE, (void*)&device_data, DEVICE_TASK_PRIORITY, &device_handle);
+  xTaskCreate(dhcp_task, "DHCP_Task", DHCP_TASK_STACK_SIZE, (void*)&device_data, DHCP_TASK_PRIORITY, &dhcp_handle);
+  xTaskCreate(device_task, "Device_Task", DEVICE_TASK_STACK_SIZE, (void*)&device_data, DEVICE_TASK_PRIORITY, &device_handle);
   xTaskCreate(blink_task, "Blink_Task", BLINK_TASK_STACK_SIZE, (void*)&device_data, BLINK_TASK_PRIORITY, &blink_handle);
   //xTaskCreate(control_task, "Control_Task", CONTROL_TASK_STACK_SIZE, (void*)&device_data, CONTROL_TASK_PRIORITY, &control_handle);
   //xTaskCreate(ping_task, "Ping_Task", PING_TASK_STACK_SIZE, (void*)&device_data, PING_TASK_PRIORITY, &ping_handle);
-  xTaskCreate(sdinfo_task, "SDinfo_Task", SDINFO_TASK_STACK_SIZE, (void*)sDisk, SDINFO_TASK_PRIORITY, &sdinfo_handle);
+  //xTaskCreate(sdinfo_task, "SDinfo_Task", SDINFO_TASK_STACK_SIZE, (void*)sDisk, SDINFO_TASK_PRIORITY, &sdinfo_handle);
   //xTaskCreate(sdmanager_task, "SDmanager_Task", SDMANAGER_TASK_STACK_SIZE, NULL, SDMANAGER_TASK_PRIORITY, &sdmanager_handle);
 
   vTaskStartScheduler();
@@ -272,6 +272,7 @@ int main(void)
   {
     device_data_t *device_data_ptr = (device_data_t*)params;
     socket_data_t socket_data[LISTENING_SOCKETS]; 
+    socket_data_udp_t socket_data_udp[UDP_SOCKETS];
 
     while(1)
     {
@@ -292,6 +293,13 @@ int main(void)
 
         socket(socket_data[i].socket_id, Sn_MR_TCP, socket_data[i].listening_port, 0x0);
         server_loop(&socket_data[i]);
+      }
+      for (uint8_t i = 0; i < UDP_SOCKETS; i++)
+      {
+        socket_data_udp[i].socket_id = LISTENING_SOCKETS + i + 2;
+        socket_data_udp[i].sourceport = UDP_PORT;
+        //socket(socket_data_udp[i].socket_id, Sn_MR_UDP, socket_data_udp[i].sourceport, 0x0);
+        udp_loop(&socket_data_udp[i]);
       }
 
       while(xEventGroupWaitBits(device_data_ptr->events, EVENT_SERVER_RUN | EVENT_DHCP_IP_RECEIVED, pdFALSE, pdTRUE, pdMS_TO_TICKS(1)) == (EVENT_SERVER_RUN | EVENT_DHCP_IP_RECEIVED))                      // (device_data_ptr->server_run)
@@ -347,7 +355,11 @@ int main(void)
             }
           }
         }
-      ftpd_run(ftp_buf);
+        for (uint8_t i = 0; i < UDP_SOCKETS; i++)
+        {
+          udp_loop(&socket_data_udp[i]);
+        }
+        ftpd_run(ftp_buf);
 
       }
       log_i(ETH_TAG, "\nTcp server stopping\r\n");

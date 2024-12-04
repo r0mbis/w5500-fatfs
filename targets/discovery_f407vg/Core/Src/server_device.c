@@ -125,19 +125,64 @@ void server_loop(socket_data_t *socket_info)
     }
 }
 
-// void udp_loop(socket_data_t *socket_info)
-// {
-//     uint16_t size = 0;
-//     switch (getSn_SR(socket_info->socket_id))
-//     {
-//     case SOCK_UDP:
-//         if (size = getSn_RX_RSR(socket_info->socket_id) > 0)
-//         break;
-    
-//     default:
-//         break;
-//     }
-// }
+void udp_loop(socket_data_udp_t *socket_info)
+{
+    int32_t ret;
+    uint16_t size;
+    uint16_t sentsize;
+    switch (getSn_SR(socket_info->socket_id))
+    {
+        case SOCK_UDP:
+            if ((size = getSn_RX_RSR(socket_info->socket_id)) > 0)
+            {
+                if (size > BUFFER_SIZE)
+                    size = BUFFER_SIZE;
+                memset(socket_info->receive_buffer, 0, size);
+                ret = recvfrom(socket_info->socket_id, socket_info->receive_buffer, size, socket_info->destip, &(socket_info->destport));
+                if (ret < 0)
+                {
+                    log_e(ETH_TAG, "\t%d: recvfrom() SOCKET UDP ERROR: %d", socket_info->socket_id, ret);
+                    return;
+                }
+                if (strcmp((void*)socket_info->receive_buffer, "Connect\n") == 0)
+                {
+                    size = strlen("Connect\n") + 1;
+                    sentsize = 0;
+                    do
+                    {
+                        ret = sendto(socket_info->socket_id, socket_info->receive_buffer + sentsize, size, socket_info->destip, socket_info->destport);
+                        if (ret < 0)
+                            return;
+                        sentsize += ret;    // Don't care SOCKERR_BUSY, because it is zero.
+                    } while (sentsize != size);
+                }
+                else if (strcmp((char*)socket_info->receive_buffer, "Firmware\n") == 0)
+                {
+                    log_i(ETH_TAG, "\tJump To Bootloader");
+                    //Reset_MCU();
+                    //JumpToAddrFlash(ADDR_FLASH_PAGE_BOOTLOADER);
+                }
+                else if (strcmp((char*)socket_info->receive_buffer, "Bootloader\n") == 0)
+                {
+                    log_i(ETH_TAG, "\tWrite Bootloader");
+                    //Write_Bootloader_Flash();
+                }
+
+            }
+            break;
+        case SOCK_CLOSED:
+            log_i(ETH_TAG, "\t[%d]: Closed, UDP, port [%d]", socket_info->socket_id, socket_info->sourceport);
+            if (socket(socket_info->socket_id, Sn_MR_UDP, socket_info->sourceport, 0x0) != socket_info->socket_id)
+            {
+                close(socket_info->socket_id);
+                return;
+            }
+            log_i(ETH_TAG, "\t[%d]: Opened, UDP, port [%d]", socket_info->socket_id, socket_info->sourceport);
+            break;
+        default:
+            break;
+    }
+}
 
 void control_task(void *params)
 {

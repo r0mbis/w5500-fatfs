@@ -9,7 +9,9 @@
 //#include "queue.h"
 
 #define LISTENING_PORT  1234
+#define UDP_PORT    3000
 #define LISTENING_SOCKETS 1
+#define UDP_SOCKETS 1
 #define TIMEOUT_SECONDS 30
 #define ICMP_PING_SOCKET 1
 
@@ -69,7 +71,17 @@ typedef struct ftp_data_s
     uint8_t password[10];
 } ftp_data_t;
 
+typedef struct socket_data_udp_s
+{
+    uint8_t socket_id;
+    uint16_t sourceport;
+    uint8_t destip[4];
+    uint16_t destport;
+    uint8_t receive_buffer[BUFFER_SIZE];
+} socket_data_udp_t;
+
 void server_loop(socket_data_t *socket_info);
+void udp_loop(socket_data_udp_t *socket_info);
 bool handle_receive_bufffer(socket_data_t* socket_info, message_t* message);
 void control_task (void *params);
 void blink_task (void *params);
