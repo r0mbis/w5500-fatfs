@@ -150,7 +150,7 @@ void sdinfo_task(void *params)
 			// // List files and folder in root
 			// log_i(FAT_TAG, "\n[SDinfo]: ");
 			// ls("3:");
-			FH_scan(&disk_ptr[0], "");
+			FH_scan(&disk_ptr[0], "", SCAN_SHOWTITLE | SCAN_RECURSIVE);
         }
 		// else
 		// {

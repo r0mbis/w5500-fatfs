@@ -25,6 +25,8 @@
 #define MAX_PATH_LEN	50		// full path length(include volume name, eg: "0:/DirName/FileName.xxx" length is 23)
 #define FH_API_TEST		1
 
+#define SCAN_SHOWTITLE	0x01
+#define SCAN_RECURSIVE	0x02
 // define yourself's LOG API
 #if SD_LOG_EN
 #include "sys_log.h"
@@ -74,7 +76,7 @@ FRESULT FH_remove_dir(StoreDisk_t* disk, char* path);
  * @brief	scan the specified dir; for scan "0:/dir/subDir", the scanPath should be "dir/subDir";
  * @note	if need scan the whole disk, scanPath should be NULL;
  */
-FRESULT FH_scan(StoreDisk_t* disk, char* scanPath);
+FRESULT FH_scan(StoreDisk_t* disk, char* scanPath, uint8_t flags);
 
 /**
  * @note	MUST create the file in the exist DIR!

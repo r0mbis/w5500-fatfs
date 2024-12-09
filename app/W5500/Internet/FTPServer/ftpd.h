@@ -18,7 +18,7 @@ extern "C" {
 
 #include <stdint.h>
 
-//#define F_FILESYSTEM // If your target support a file system, you have to activate this feature and implement.
+#define F_FILESYSTEM // If your target support a file system, you have to activate this feature and implement.
 
 #if defined(F_FILESYSTEM)
 #include "ff.h"
@@ -31,7 +31,7 @@ extern "C" {
 #define LINELEN		100
 //#define DATA_BUF_SIZE	100
 #if !defined(F_FILESYSTEM)
-#define _MAX_SS		512
+#define FF_MAX_SS		512
 #endif
 
 #define CTRL_SOCK	7

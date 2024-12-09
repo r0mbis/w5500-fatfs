@@ -151,6 +151,227 @@ void ftpd_init(uint8_t * src_ip)
 	socket(CTRL_SOCK, Sn_MR_TCP, IPPORT_FTP, 0x0);
 }
 
+int get_filesize(char* path, char *filename)
+{
+	FRESULT res;
+	FILINFO fno;
+	DIR dir;
+	int i, len, buf_ptr = 0;
+	(void)i;
+	(void)buf_ptr;
+	(void)len;
+	char *fn; 	/* This function is assuming no_Unicode cfg.*/
+//#ifdef _USE_LFN
+#if 0
+	static char lfn[_MAX_LFN + 1];
+	fno.lfname = lfn;
+	fno.lfsize = sizeof(lfn);
+#endif
+
+	if(*path == 0x00)
+		res = f_opendir(&dir, "/");
+	else
+		res = f_opendir(&dir, path);
+#if defined(_FF_F_DEBUG_)
+    printf("f_opendir res: %d\r\n", res);
+#endif
+	if(res == FR_OK){
+		for(;;){
+			res = f_readdir(&dir, &fno);
+			if(res != FR_OK || fno.fname[0] == 0) break;
+			if(fno.fname[0] == '.') continue;
+            #if 0
+#ifdef _USE_LFN
+			fn = *fno.lfname ? fno.lfname : fno.fname;
+#else
+			fn = fno.fname;
+#endif
+#else
+            fn = fno.fname;
+#endif
+			if(!strcmp(fn, filename))
+			{
+				if(fno.fattrib & AM_DIR){
+#if defined(_FF_F_DEBUG_)
+                    printf("\r\n%s/%s is a directory\r\n", path, filename);
+#endif
+					return 0;
+				}
+				return fno.fsize;
+			}
+		}
+#if defined(_FF_F_DEBUG_)
+        printf("\r\n%s/%s was not found\r\n", path, filename);
+#endif
+        f_closedir(&dir);
+
+	}
+	return -1;
+}
+
+/*
+ * Inserted from earlier realize FAT FS ->
+ * FAT file system module  R0.10c                (C)ChaN, 2014
+ */
+/*
+ * Preferable structure of out <LIST> see here:
+ * https://files.stairways.com/other/ftp-list-specs-info.txt
+ *
+ * something like:
+	-rw-------  1 peter         848 Dec 14 11:22 00README.txt
+or
+	- whatever you feel like 848 Dec 14 11:22 00README.txt
+
+ * also
+ * http://cr.yp.to/ftp/list/binls.html
+ *
+/bin/ls format is a series of lines terminated by \015\012. Servers using /bin/ls format need to be prepared to generate lines in the following form:
+
+     -rw-r--r-- 1 owner group           213 Aug 26 16:31 README
+
+The line contains
+
+    - for a regular file or d for a directory;
+    the literal string rw-r--r-- 1 owner group for a regular file, or rwxr-xr-x 1 owner group for a directory;
+    the file size in decimal right-justified in a 13-byte field;
+    a three-letter month name, first letter capitalized;
+    a day number right-justified in a 3-byte field;
+    a space and a 2-digit hour number;
+    a colon and a 2-digit minute number;
+    a space and the abbreviated pathname of the file.
+ */
+#if 1
+FRESULT scan_files(char* path, char *buf, int * buf_len)
+{
+	FRESULT res;
+	FILINFO fno;
+	DIR dir;
+	int i, len = 0, buf_ptr = 0;
+	(void)i;
+	char *fn; 	/* This function is assuming no_Unicode cfg.*/
+	char date_str[15];
+	int date_str_ptr = 0;
+    DWORD now_sect = 0;
+//#ifdef FF_USE_LFN
+#if 0
+	static char lfn[_MAX_LFN + 1];
+	fno.lfname = lfn;
+	fno.lfsize = sizeof(lfn);
+#endif
+
+	res = f_opendir(&dir, path);
+#if defined(_FF_F_DEBUG_)
+    printf("%s->%s [%d]\r\n",  __FILE__, __FUNCTION__, __LINE__);
+	printf("f_opendir res: %d path:%s\r\n", res, path);
+#endif
+	if(res == FR_OK){
+		i = strlen(path);
+#if defined(_FF_F_DEBUG_)
+        printf("strlen of path: %s %d \r\n", path, i);
+#endif
+		for(;;){
+			res = f_readdir(&dir, &fno);
+            log_i(FAT_TAG, "\tf_readdir ret : %d, fname %c", res, fno.fname[0]);
+			if(res != FR_OK || fno.fname[0] == 0) break;
+			if(fno.fname[0] == '.') continue;
+            #if 0
+#ifdef FF_USE_LFN
+			fn = *fno.lfname ? fno.lfname : fno.fname;
+#else
+			fn = fno.fname;
+#endif
+#else
+            fn = fno.fname;
+#endif
+#if defined(_FF_F_DEBUG_)
+            printf("1 sect : %ld\r\n", dir.sect);
+#endif
+            now_sect = dir.sect;
+			switch((fno.fdate >> 5) & 0x0f)
+			{
+			case 1:
+				len = sprintf(date_str, "JAN ");
+				break;
+			case 2:
+				len = sprintf(date_str, "FEB ");
+				break;
+			case 3:
+				len = sprintf(date_str, "MAR ");
+				break;
+			case 4:
+				len = sprintf(date_str, "APR ");
+				break;
+			case 5:
+				len = sprintf(date_str, "MAY ");
+				break;
+			case 6:
+				len = sprintf(date_str, "JUN ");
+				break;
+			case 7:
+				len = sprintf(date_str, "JUL ");
+				break;
+			case 8:
+				len = sprintf(date_str, "AUG ");
+				break;
+			case 9:
+				len = sprintf(date_str, "SEP ");
+				break;
+			case 10:
+				len = sprintf(date_str, "OCT ");
+				break;
+			case 11:
+				len = sprintf(date_str, "NOV ");
+				break;
+			case 12:
+				len = sprintf(date_str, "DEC ");
+				break;
+			}
+			date_str_ptr += len;
+			len = sprintf(date_str + date_str_ptr, "%d ", (fno.fdate & 0x1f));
+			date_str_ptr += len;
+			len = sprintf(date_str + date_str_ptr, "%d", (((fno.fdate >> 9) & 0x7f) + 1980));
+			date_str_ptr = 0;
+#if defined(_FF_F_DEBUG_)
+            printf("date str : %s \r\n date_str_ptr:%d\r\n", date_str, date_str_ptr);
+#endif
+#if defined(_FF_F_DEBUG_)
+                        printf("2 sect : %ld\r\n", dir.sect);
+#endif
+
+			if(fno.fattrib & AM_DIR)
+			{
+				sprintf(buf + buf_ptr, "d");
+			}else
+			{
+				sprintf(buf + buf_ptr, "-");
+			}
+			buf_ptr++;
+			// drwxr-xr-x 1 ftp ftp              0 Apr 07  2014 $RECYCLE.BIN\r\n
+			//len = sprintf(buf + buf_ptr, "rwxr-xr-x 1 ftp ftp              %d %s %s\r\n", fno.fsize, date_str, fn);
+			len = sprintf(buf + buf_ptr, "rwxr-xr-x 1 ftp ftp %ld %s %s\r\n", fno.fsize, date_str, fn);
+			buf_ptr += len;
+#if defined(_FF_F_DEBUG_)
+            printf("fn: %s, buff_ptr:%d \r\n", fn, buf_ptr);
+#endif
+            if(dir.sect != now_sect)
+            {
+#if defined(_FF_F_DEBUG_)
+                printf("now sect:%d, dir.sect: %d\r\n", now_sect, dir.sect);
+#endif
+                break;
+            }
+		}
+#if defined(_FF_F_DEBUG_)
+        *buf_len = strlen(buf);
+        printf("[%s]\r\n", buf);
+        printf("buf_len : %d, sizeof(buf): %d\r\n", buf_len, sizeof(buf));
+#endif
+		f_closedir(&dir);
+	}
+	return res;
+}
+#endif
+
 uint8_t ftpd_run(uint8_t * dbuf)
 {
 	uint16_t size = 0, i;
@@ -172,7 +393,7 @@ uint8_t ftpd_run(uint8_t * dbuf)
     		if(!connect_state_control)
     		{
 #if defined(_FTP_DEBUG_)
-    			log_i(ETH_TAG, "%d:FTP Connected\r\n", CTRL_SOCK);
+    			log_i(ETH_TAG, "\t%d:FTP Connected", CTRL_SOCK);
 #endif
     			//fsprintf(CTRL_SOCK, banner, HOSTNAME, VERSION);
     			strcpy(ftp.workingdir, "/");
@@ -181,7 +402,7 @@ uint8_t ftpd_run(uint8_t * dbuf)
     			if(ret < 0)
     			{
 #if defined(_FTP_DEBUG_)
-    				log_i(ETH_TAG, "%d:send() error:%ld\r\n",CTRL_SOCK,ret);
+    				log_i(ETH_TAG, "\t%d:send() error:%ld",CTRL_SOCK,ret);
 #endif
     				close(CTRL_SOCK);
     				return ret;
@@ -196,12 +417,12 @@ uint8_t ftpd_run(uint8_t * dbuf)
     		if((size = getSn_RX_RSR(CTRL_SOCK)) > 0) // Don't need to check SOCKERR_BUSY because it doesn't not occur.
     		{
 #if defined(_FTP_DEBUG_)
-    			log_i(ETH_TAG, "size: %d\r\n", size);
+    			log_i(ETH_TAG, "\tsize: %d", size);
 #endif
 
-    			memset(dbuf, 0, _MAX_SS);
+    			memset(dbuf, 0, FF_MAX_SS);
 
-    			if(size > _MAX_SS) size = _MAX_SS - 1;
+    			if(size > FF_MAX_SS) size = FF_MAX_SS - 1;
 
     			ret = recv(CTRL_SOCK,dbuf,size);
     			dbuf[ret] = '\0';
@@ -211,14 +432,14 @@ uint8_t ftpd_run(uint8_t * dbuf)
     				if(ret < 0)
     				{
 #if defined(_FTP_DEBUG_)
-    					log_i(ETH_TAG, "%d:recv() error:%ld\r\n",CTRL_SOCK,ret);
+    					log_i(ETH_TAG, "\t%d:recv() error:%ld",CTRL_SOCK,ret);
 #endif
     					close(CTRL_SOCK);
     					return ret;
     				}
     			}
 #if defined(_FTP_DEBUG_)
-    			log_i(ETH_TAG, "Rcvd Command: %s", dbuf);
+    			log_i(ETH_TAG, "\tRcvd Command: %s", dbuf);
 #endif
     			proc_ftpd((char *)dbuf);
     		}
@@ -226,17 +447,17 @@ uint8_t ftpd_run(uint8_t * dbuf)
 
     	case SOCK_CLOSE_WAIT :
 #if defined(_FTP_DEBUG_)
-    		log_i(ETH_TAG, "%d:CloseWait\r\n",CTRL_SOCK);
+    		log_i(ETH_TAG, "\t%d:CloseWait",CTRL_SOCK);
 #endif
     		if((ret=disconnect(CTRL_SOCK)) != SOCK_OK) return ret;
 #if defined(_FTP_DEBUG_)
-    		log_i(ETH_TAG, "%d:Closed\r\n",CTRL_SOCK);
+    		log_i(ETH_TAG, "\t%d:Closed",CTRL_SOCK);
 #endif
     		break;
 
     	case SOCK_CLOSED :
 #if defined(_FTP_DEBUG_)
-    		log_i(ETH_TAG, "%d:FTPStart\r\n",CTRL_SOCK);
+    		log_i(ETH_TAG, "\t%d:FTPStart",CTRL_SOCK);
 #endif
     		if((ret=socket(CTRL_SOCK, Sn_MR_TCP, IPPORT_FTP, 0x0)) != CTRL_SOCK)
     		{
@@ -250,20 +471,20 @@ uint8_t ftpd_run(uint8_t * dbuf)
 
     	case SOCK_INIT :
 #if defined(_FTP_DEBUG_)
-    		log_i(ETH_TAG, "%d:Opened\r\n",CTRL_SOCK);
+    		log_i(ETH_TAG, "\t%d:Opened",CTRL_SOCK);
 #endif
     		//strcpy(ftp.workingdir, "/");
     		if( (ret = listen(CTRL_SOCK)) != SOCK_OK)
     		{
 #if defined(_FTP_DEBUG_)
-    			log_i(ETH_TAG, "%d:Listen error\r\n",CTRL_SOCK);
+    			log_i(ETH_TAG, "\t%d:Listen error",CTRL_SOCK);
 #endif
     			return ret;
     		}
 			connect_state_control = 0;
 
 #if defined(_FTP_DEBUG_)
-			log_i(ETH_TAG, "%d:Listen ok\r\n",CTRL_SOCK);
+			log_i(ETH_TAG, "\t%d:Listen ok",CTRL_SOCK);
 #endif
 			break;
 
@@ -278,7 +499,7 @@ uint8_t ftpd_run(uint8_t * dbuf)
     		if(!connect_state_data)
     		{
 #if defined(_FTP_DEBUG_)
-    			log_i(ETH_TAG, "%d:FTP Data socket Connected\r\n", DATA_SOCK);
+    			log_i(ETH_TAG, "\t%d:FTP Data socket Connected", DATA_SOCK);
 #endif
     			connect_state_data = 1;
     		}
@@ -288,14 +509,14 @@ uint8_t ftpd_run(uint8_t * dbuf)
     			case LIST_CMD:
     			case MLSD_CMD:
 #if defined(_FTP_DEBUG_)
-    				log_i(ETH_TAG, "previous size: %d\r\n", size);
+    				log_i(ETH_TAG, "\tprevious size: %d", size);
 #endif
 #if defined(F_FILESYSTEM)
-    				scan_files(ftp.workingdir, dbuf, (int *)&size);
+    				scan_files(ftp.workingdir, (char*)dbuf, (int *)&size);
 #endif
 #if defined(_FTP_DEBUG_)
-    				log_i(ETH_TAG, "returned size: %d\r\n", size);
-    				log_i(ETH_TAG, "%s\r\n", dbuf);
+    				log_i(ETH_TAG, "\treturned size: %d", size);
+    				log_i(ETH_TAG, "\t%s", dbuf);
 #endif
 #if !defined(F_FILESYSTEM)
     				if (strncmp(ftp.workingdir, "/$Recycle.Bin", sizeof("/$Recycle.Bin")) != 0)
@@ -311,32 +532,32 @@ uint8_t ftpd_run(uint8_t * dbuf)
 
     			case RETR_CMD:
 #if defined(_FTP_DEBUG_)
-    				log_i(ETH_TAG, "filename to retrieve : %s %d\r\n", ftp.filename, strlen(ftp.filename));
+    				log_i(ETH_TAG, "\tfilename to retrieve : %s %d", ftp.filename, strlen(ftp.filename));
 #endif
 #if defined(F_FILESYSTEM)
     				ftp.fr = f_open(&(ftp.fil), (const char *)ftp.filename, FA_READ);
     				//print_filedsc(&(ftp.fil));
     				if(ftp.fr == FR_OK){
-    					remain_filesize = ftp.fil.fsize;
+    					remain_filesize = ftp.fil.obj.objsize;
 #if defined(_FTP_DEBUG_)
-    					printf("f_open return FR_OK\r\n");
+    					log_i(ETH_TAG, "\tf_open return FR_OK");
 #endif
     					do{
 #if defined(_FTP_DEBUG_)
     						//printf("remained file size: %d\r\n", ftp.fil.fsize);
 #endif
-    						memset(dbuf, 0, _MAX_SS);
+    						memset(dbuf, 0, FF_MAX_SS);
 
-    						if(remain_filesize > _MAX_SS)
-    							send_byte = _MAX_SS;
+    						if(remain_filesize > FF_MAX_SS)
+    							send_byte = FF_MAX_SS;
     						else
     							send_byte = remain_filesize;
 
-    						ftp.fr = f_read(&(ftp.fil), dbuf, send_byte , &blocklen);
+    						ftp.fr = f_read(&(ftp.fil), dbuf, send_byte , (UINT*)&blocklen);
     						if(ftp.fr != FR_OK)
     							break;
 #if defined(_FTP_DEBUG_)
-    						printf("#");
+    						log_i(ETH_TAG, "\t#");
     						//printf("----->fsize:%d recv:%d len:%d \r\n", remain_filesize, send_byte, blocklen);
     						//printf("----->fn:%s data:%s \r\n", ftp.filename, dbuf);
 #endif
@@ -344,12 +565,12 @@ uint8_t ftpd_run(uint8_t * dbuf)
     						remain_filesize -= blocklen;
     					}while(remain_filesize != 0);
 #if defined(_FTP_DEBUG_)
-    					printf("\r\nFile read finished\r\n");
+    					log_i(ETH_TAG, "\tFile read finished");
 #endif
     					ftp.fr = f_close(&(ftp.fil));
     				}else{
 #if defined(_FTP_DEBUG_)
-    					printf("File Open Error: %d\r\n", ftp.fr);
+    					log_i(ETH_TAG, "\tFile Open Error: %d", ftp.fr);
 #endif
     				}
 #else
@@ -375,22 +596,22 @@ uint8_t ftpd_run(uint8_t * dbuf)
 
     			case STOR_CMD:
 #if defined(_FTP_DEBUG_)
-    				log_i(ETH_TAG, "filename to store : %s %d\r\n", ftp.filename, strlen(ftp.filename));
+    				log_i(ETH_TAG, "\tfilename to store : %s %d", ftp.filename, strlen(ftp.filename));
 #endif
 #if defined(F_FILESYSTEM)
     				ftp.fr = f_open(&(ftp.fil), (const char *)ftp.filename, FA_CREATE_ALWAYS | FA_WRITE);
     				//print_filedsc(&(ftp.fil));
     				if(ftp.fr == FR_OK){
 #if defined(_FTP_DEBUG_)
-    					printf("f_open return FR_OK\r\n");
+    					log_i(ETH_TAG, "\tf_open return FR_OK");
 #endif
     					while(1){
     						if((remain_datasize = getSn_RX_RSR(DATA_SOCK)) > 0){
     							while(1){
-    								memset(dbuf, 0, _MAX_SS);
+    								memset(dbuf, 0, FF_MAX_SS);
 
-    								if(remain_datasize > _MAX_SS)
-    									recv_byte = _MAX_SS;
+    								if(remain_datasize > FF_MAX_SS)
+    									recv_byte = FF_MAX_SS;
     								else
     									recv_byte = remain_datasize;
 
@@ -399,7 +620,7 @@ uint8_t ftpd_run(uint8_t * dbuf)
     								//printf("----->fn:%s data:%s \r\n", ftp.filename, dbuf);
 #endif
 
-    								ftp.fr = f_write(&(ftp.fil), dbuf, (UINT)ret, &blocklen);
+    								ftp.fr = f_write(&(ftp.fil), dbuf, (UINT)ret, (UINT*)&blocklen);
 #if defined(_FTP_DEBUG_)
     								//printf("----->dsize:%d recv:%d len:%d \r\n", remain_datasize, ret, blocklen);
 #endif
@@ -407,7 +628,7 @@ uint8_t ftpd_run(uint8_t * dbuf)
 
     								if(ftp.fr != FR_OK){
 #if defined(_FTP_DEBUG_)
-    									printf("f_write failed\r\n");
+    									log_i(ETH_TAG, "\tf_write failed");
 #endif
     									break;
     								}
@@ -418,13 +639,13 @@ uint8_t ftpd_run(uint8_t * dbuf)
 
     							if(ftp.fr != FR_OK){
 #if defined(_FTP_DEBUG_)
-    								printf("f_write failed\r\n");
+    								log_i(ETH_TAG, "\tf_write failed");
 #endif
     								break;
     							}
 
 #if defined(_FTP_DEBUG_)
-    							printf("#");
+    							log_i(ETH_TAG, "\t#");
 #endif
     						}else{
     							if(getSn_SR(DATA_SOCK) != SOCK_ESTABLISHED)
@@ -432,12 +653,12 @@ uint8_t ftpd_run(uint8_t * dbuf)
     						}
     					}
 #if defined(_FTP_DEBUG_)
-    					printf("\r\nFile write finished\r\n");
+    					log_i(ETH_TAG, "\tFile write finished");
 #endif
     					ftp.fr = f_close(&(ftp.fil));
     				}else{
 #if defined(_FTP_DEBUG_)
-    					printf("File Open Error: %d\r\n", ftp.fr);
+    					log_i(ETH_TAG, "File Open Error: %d", ftp.fr);
 #endif
     				}
 
@@ -484,11 +705,11 @@ uint8_t ftpd_run(uint8_t * dbuf)
 
    		case SOCK_CLOSE_WAIT :
 #if defined(_FTP_DEBUG_)
-   			log_i(ETH_TAG, "%d:CloseWait\r\n",DATA_SOCK);
+   			log_i(ETH_TAG, "\t%d:CloseWait",DATA_SOCK);
 #endif
    			if((ret=disconnect(DATA_SOCK)) != SOCK_OK) return ret;
 #if defined(_FTP_DEBUG_)
-   			log_i(ETH_TAG, "%d:Closed\r\n",DATA_SOCK);
+   			log_i(ETH_TAG, "\t%d:Closed",DATA_SOCK);
 #endif
    			break;
 
@@ -497,12 +718,12 @@ uint8_t ftpd_run(uint8_t * dbuf)
    			{
    				if(ftp.dsock_mode == PASSIVE_MODE){
 #if defined(_FTP_DEBUG_)
-   					log_i(ETH_TAG, "%d:FTPDataStart, port : %d\r\n",DATA_SOCK, local_port);
+   					log_i(ETH_TAG, "\t%d:FTPDataStart, port : %d",DATA_SOCK, local_port);
 #endif
    					if((ret=socket(DATA_SOCK, Sn_MR_TCP, local_port, 0x0)) != DATA_SOCK)
    					{
 #if defined(_FTP_DEBUG_)
-   						log_i(ETH_TAG, "%d:socket() error:%ld\r\n", DATA_SOCK, ret);
+   						log_i(ETH_TAG, "\t%d:socket() error:%ld", DATA_SOCK, ret);
 #endif
    						close(DATA_SOCK);
    						return ret;
@@ -513,12 +734,12 @@ uint8_t ftpd_run(uint8_t * dbuf)
    						local_port = 35000;
    				}else{
 #if defined(_FTP_DEBUG_)
-   					log_i(ETH_TAG, "%d:FTPDataStart, port : %d\r\n",DATA_SOCK, IPPORT_FTPD);
+   					log_i(ETH_TAG, "\t%d:FTPDataStart, port : %d",DATA_SOCK, IPPORT_FTPD);
 #endif
    					if((ret=socket(DATA_SOCK, Sn_MR_TCP, IPPORT_FTPD, 0x0)) != DATA_SOCK)
    					{
 #if defined(_FTP_DEBUG_)
-   						log_i(ETH_TAG, "%d:socket() error:%ld\r\n", DATA_SOCK, ret);
+   						log_i(ETH_TAG, "\t%d:socket() error:%ld", DATA_SOCK, ret);
 #endif
    						close(DATA_SOCK);
    						return ret;
@@ -531,24 +752,24 @@ uint8_t ftpd_run(uint8_t * dbuf)
 
    		case SOCK_INIT :
 #if defined(_FTP_DEBUG_)
-   			log_i(ETH_TAG, "%d:Opened\r\n",DATA_SOCK);
+   			log_i(ETH_TAG, "\t%d:Opened",DATA_SOCK);
 #endif
    			if(ftp.dsock_mode == PASSIVE_MODE){
    				if( (ret = listen(DATA_SOCK)) != SOCK_OK)
    				{
 #if defined(_FTP_DEBUG_)
-   					log_i(ETH_TAG, "%d:Listen error\r\n",DATA_SOCK);
+   					log_i(ETH_TAG, "\t%d:Listen error",DATA_SOCK);
 #endif
    					return ret;
    				}
 
 #if defined(_FTP_DEBUG_)
-   				log_i(ETH_TAG, "%d:Listen ok\r\n",DATA_SOCK);
+   				log_i(ETH_TAG, "\t%d:Listen ok",DATA_SOCK);
 #endif
    			}else{
    				if((ret = connect(DATA_SOCK, remote_ip.cVal, remote_port)) != SOCK_OK){
 #if defined(_FTP_DEBUG_)
-   					log_i(ETH_TAG, "%d:Connect error\r\n", DATA_SOCK);
+   					log_i(ETH_TAG, "\t%d:Connect error", DATA_SOCK);
 #endif
    					return ret;
    				}
@@ -613,7 +834,7 @@ char proc_ftpd(char * buf)
 	{
 		case USER_CMD :
 #if defined(_FTP_DEBUG_)
-			log_i(ETH_TAG, "USER_CMD : %s", arg);
+			log_i(ETH_TAG, "\tUSER_CMD : %s", arg);
 #endif
 			slen = strlen(arg);
 			arg[slen - 1] = 0x00;
@@ -625,7 +846,7 @@ char proc_ftpd(char * buf)
 			if(ret < 0)
 			{
 #if defined(_FTP_DEBUG_)
-				log_i(ETH_TAG, "%d:send() error:%ld\r\n",CTRL_SOCK,ret);
+				log_i(ETH_TAG, "\t%d:send() error:%ld",CTRL_SOCK,ret);
 #endif
 				close(CTRL_SOCK);
 				return ret;
@@ -634,7 +855,7 @@ char proc_ftpd(char * buf)
 
 		case PASS_CMD :
 #if defined(_FTP_DEBUG_)
-			log_i(ETH_TAG, "PASS_CMD : %s", arg);
+			log_i(ETH_TAG, "\tPASS_CMD : %s", arg);
 #endif
 			slen = strlen(arg);
 			arg[slen - 1] = 0x00;
@@ -711,7 +932,7 @@ char proc_ftpd(char * buf)
 			arg[slen - 1] = 0x00;
 			arg[slen - 2] = 0x00;
 #if defined(_FTP_DEBUG_)
-			log_i(ETH_TAG, "STOR_CMD\r\n");
+			log_i(ETH_TAG, "\tSTOR_CMD");
 #endif
 			if(strlen(ftp.workingdir) == 1)
 				sprintf(ftp.filename, "/%s", arg);
@@ -722,7 +943,7 @@ char proc_ftpd(char * buf)
 			ftp.current_cmd = STOR_CMD;
 			if((ret = connect(DATA_SOCK, remote_ip.cVal, remote_port)) != SOCK_OK){
 #if defined(_FTP_DEBUG_)
-				log_i(ETH_TAG, "%d:Connect error\r\n", DATA_SOCK);
+				log_i(ETH_TAG, "\t%d:Connect error", DATA_SOCK);
 #endif
 				return ret;
 			}
@@ -731,7 +952,7 @@ char proc_ftpd(char * buf)
 
 		case PORT_CMD:
 #if defined(_FTP_DEBUG_)
-			log_i(ETH_TAG, "PORT_CMD\r\n");
+			log_i(ETH_TAG, "\tPORT_CMD");
 #endif
 			if (pport(arg) == -1){
 				//fsprintf(CTRL_SOCK, badport);
@@ -788,7 +1009,7 @@ char proc_ftpd(char * buf)
 			ftp.dsock_mode = PASSIVE_MODE;
 			ftp.dsock_state = DATASOCK_READY;
 #if defined(_FTP_DEBUG_)
-			log_i(ETH_TAG, "PASV port: %d\r\n", local_port);
+			log_i(ETH_TAG, "\tPASV port: %d", local_port);
 #endif
 		break;
 
@@ -1021,17 +1242,17 @@ int pport(char * arg)
 void print_filedsc(FIL *fil)
 {
 #if defined(_FTP_DEBUG_)
-	printf("File System pointer : %08X\r\n", fil->fs);
-	printf("File System mount ID : %d\r\n", fil->id);
-	printf("File status flag : %08X\r\n", fil->flag);
-	printf("File System pads : %08X\r\n", fil->err);
-	printf("File read write pointer : %08X\r\n", fil->fptr);
-	printf("File size : %08X\r\n", fil->fsize);
-	printf("File start cluster : %08X\r\n", fil->sclust);
-	printf("current cluster : %08X\r\n", fil->clust);
-	printf("current data sector : %08X\r\n", fil->dsect);
-	printf("dir entry sector : %08X\r\n", fil->dir_sect);
-	printf("dir entry pointer : %08X\r\n", fil->dir_ptr);
+	// printf("File System pointer : %08X\r\n", fil->fs);
+	// printf("File System mount ID : %d\r\n", fil->id);
+	// printf("File status flag : %08X\r\n", fil->flag);
+	// printf("File System pads : %08X\r\n", fil->err);
+	// printf("File read write pointer : %08X\r\n", fil->fptr);
+	// printf("File size : %08X\r\n", fil->fsize);
+	// printf("File start cluster : %08X\r\n", fil->sclust);
+	// printf("current cluster : %08X\r\n", fil->clust);
+	// printf("current data sector : %08X\r\n", fil->dsect);
+	// printf("dir entry sector : %08X\r\n", fil->dir_sect);
+	// printf("dir entry pointer : %08X\r\n", fil->dir_ptr);
 #endif
 }
 #endif

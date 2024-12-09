@@ -54,7 +54,8 @@
         "crc.h": "c",
         "semaphore.h": "c",
         "spi_sdcard.h": "c",
-        "fatfs_add.h": "c"
+        "fatfs_add.h": "c",
+        "typeinfo": "c"
     },
     "git.ignoreLimitWarning": true,
     "cortex-debug.variableUseNaturalFormat": false

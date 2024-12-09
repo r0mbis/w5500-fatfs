@@ -66,7 +66,10 @@ void FH_unmount(StoreDisk_t* disk)
 }
 
 /* Start node to be scanned (***also used as work area***) */
-static FRESULT FH_scan_(StoreDisk_t* disk, char* scanPath, uint8_t showTitle)
+/**
+ * flags: SCAN_SHOWTITLE, SCAN_RECURSIVE
+ */
+FRESULT FH_scan(StoreDisk_t* disk, char* scanPath, uint8_t flags)
 {
 	DIR dir;
 	UINT i;
@@ -89,8 +92,8 @@ static FRESULT FH_scan_(StoreDisk_t* disk, char* scanPath, uint8_t showTitle)
 
 	fresult = f_opendir(&dir, path);                       /* Open the directory */
 	if(fresult == FR_OK) {
-		if(showTitle) {
-			FH_printf(FAT_TAG, "\tScan [%s]\n", path);
+		if(flags & SCAN_SHOWTITLE) {
+			FH_printf(FAT_TAG, "\tScan [%s]", path);
 		}
 		for(;;) {
 			fresult = f_readdir(&dir, &fno);               /* Read a directory item */
@@ -101,24 +104,27 @@ static FRESULT FH_scan_(StoreDisk_t* disk, char* scanPath, uint8_t showTitle)
 				if(!(strcmp ("SYSTEM~1", fno.fname))) {
 					continue;
 				}
-				FH_printf(FAT_TAG, "\t[Dir ] %s/%s\n", path, fno.fname);
+				FH_printf(FAT_TAG, "\t[Dir ] %s/%s", path, fno.fname);
 				if(strlen(path) + 1 + strlen(fno.fname) >= MAX_PATH_LEN) {
-					FH_ERR(FAT_TAG, "\tpath too long\n");
+					FH_ERR(FAT_TAG, "\tpath too long");
 					break;
 				}
-				i = strlen(path);
-				sprintf(&path[i], "/%s", fno.fname);
-				fresult = FH_scan_(disk, &path[strlen(disk->name)], 0);   	/* Enter the directory */
-				if(fresult != FR_OK) {
-					break;
+				if (flags & SCAN_RECURSIVE)
+				{
+					i = strlen(path);
+					sprintf(&path[i], "/%s", fno.fname);
+					fresult = FH_scan(disk, &path[strlen(disk->name)], flags & (~SCAN_SHOWTITLE));   	/* Enter the directory */
+					if(fresult != FR_OK) {
+						break;
+					}
+					path[i] = 0;
 				}
-				path[i] = 0;
 			} else {   /* It is a file. */
 				 FH_printf(FAT_TAG, "\t[File] %s/%s\n", path, fno.fname);
 			}
 		}
 		f_closedir(&dir);
-		if(showTitle) {
+		if(flags & SCAN_SHOWTITLE) {
 			FH_printf(FAT_TAG, "\n");
 		}
 	} else {
@@ -128,10 +134,10 @@ static FRESULT FH_scan_(StoreDisk_t* disk, char* scanPath, uint8_t showTitle)
 	return fresult;
 }
 
-FRESULT FH_scan(StoreDisk_t* disk, char* scanPath)
-{
-	return FH_scan_(disk, scanPath, 1);
-}
+// FRESULT FH_scan(StoreDisk_t* disk, char* scanPath)
+// {
+// 	return FH_scan_(disk, scanPath, 1);
+// }
 
 // can NOT remove the root(/) dir
 FRESULT FH_remove_dir(StoreDisk_t* disk, char* path)
@@ -574,11 +580,11 @@ void FH_API_test(StoreDisk_t* disk)
 	// FH_create_file(disk, "dir2/file21.txt");	// err, dir2 NOT exist
 	// FH_create_dir(disk, "dir3/dir31");		// err, dir3 NOT exist
 	
-	FH_scan(disk, NULL);
-	FH_scan(disk, "dir1/dir12");
+	FH_scan(disk, NULL, SCAN_SHOWTITLE | SCAN_RECURSIVE);
+	FH_scan(disk, "dir1/dir12", SCAN_SHOWTITLE | SCAN_RECURSIVE);
 	FH_remove_dir(disk, "dir1/dir12");
 	FH_remove_file(disk, "dir1/file11.txt");
-	FH_scan(disk, NULL);
+	FH_scan(disk, NULL, SCAN_SHOWTITLE | SCAN_RECURSIVE);
 	
 	FH_write(disk, "dir1/file12.txt", "FH_write() FA_OPEN_EXISTING test", FA_OPEN_EXISTING);
 	FH_write(disk, "dir1/file12.txt", "FH_write() FA_CREATE_ALWAYS test", FA_CREATE_ALWAYS);
