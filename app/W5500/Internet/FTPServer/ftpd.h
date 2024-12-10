@@ -34,8 +34,8 @@ extern "C" {
 #define FF_MAX_SS		512
 #endif
 
-#define CTRL_SOCK	7
-#define DATA_SOCK	8
+#define CTRL_SOCK	6
+#define DATA_SOCK	7
 
 #define	IPPORT_FTPD	20	/* FTP Data port */
 #define	IPPORT_FTP	21	/* FTP Control port */

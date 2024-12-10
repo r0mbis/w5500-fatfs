@@ -146,7 +146,7 @@ void ftpd_init(uint8_t * src_ip)
 	local_ip.cVal[3] = src_ip[3];
 	local_port = 35000;
 	
-	strcpy(ftp.workingdir, "/");
+	strcpy(ftp.workingdir, "3:");		// "/"
 
 	socket(CTRL_SOCK, Sn_MR_TCP, IPPORT_FTP, 0x0);
 }
@@ -161,6 +161,7 @@ int get_filesize(char* path, char *filename)
 	(void)buf_ptr;
 	(void)len;
 	char *fn; 	/* This function is assuming no_Unicode cfg.*/
+	char* fullpath[50];
 //#ifdef _USE_LFN
 #if 0
 	static char lfn[_MAX_LFN + 1];
@@ -169,9 +170,12 @@ int get_filesize(char* path, char *filename)
 #endif
 
 	if(*path == 0x00)
-		res = f_opendir(&dir, "/");
+		res = f_opendir(&dir, "3:");	// "/"
 	else
-		res = f_opendir(&dir, path);
+	{
+		sprintf(fullpath, "%s%s", ftp.workingdir, path);	// +
+		res = f_opendir(&dir, fullpath);	// path -> fullpath
+	}
 #if defined(_FF_F_DEBUG_)
     printf("f_opendir res: %d\r\n", res);
 #endif
@@ -396,7 +400,7 @@ uint8_t ftpd_run(uint8_t * dbuf)
     			log_i(ETH_TAG, "\t%d:FTP Connected", CTRL_SOCK);
 #endif
     			//fsprintf(CTRL_SOCK, banner, HOSTNAME, VERSION);
-    			strcpy(ftp.workingdir, "/");
+    			strcpy(ftp.workingdir, "3:");		// "/"
     			sprintf((char *)dbuf, "220 %s FTP version %s ready.\r\n", HOSTNAME, VERSION);
     			ret = send(CTRL_SOCK, (uint8_t *)dbuf, strlen((const char *)dbuf));
     			if(ret < 0)
@@ -1055,7 +1059,11 @@ char proc_ftpd(char * buf)
 				*tmpstr = '/';
 				if(slen == 0){
 					slen = sprintf(sendbuf, "213 %d\r\n", slen);
-					strcpy(ftp.workingdir, arg);
+					if (*arg == '/')
+						sprintf(ftp.workingdir, "%s%s", "3:", (arg + 1));
+					else
+						strcat(ftp.workingdir, arg);
+					//strcpy(ftp.workingdir, arg);	//	-
 					slen = sprintf(sendbuf, "250 CWD successful. \"%s\" is current directory.\r\n", ftp.workingdir);
 				}
 				else

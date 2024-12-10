@@ -144,6 +144,7 @@ int main(void)
   //SPI_SD_Init();
   /* USER CODE BEGIN 2 */
   sys_log_init();
+  FH_mount(&disk_ptr[0]);
   InitW5500();
   device_data.ip_assigned_sem = xSemaphoreCreateCounting((UBaseType_t)0xFFFFFFFF, (UBaseType_t)0U);
   //device_data.ping_sem = xSemaphoreCreateBinary();
