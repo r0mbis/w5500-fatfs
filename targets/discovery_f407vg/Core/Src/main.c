@@ -140,11 +140,11 @@ int main(void)
   MX_DMA_Init();
   MX_USART2_UART_Init();
   MX_SPI1_Init();
-  //MX_SPI2_Init();
+  MX_SPI2_Init();
   //SPI_SD_Init();
   /* USER CODE BEGIN 2 */
   sys_log_init();
-  FH_mount(&disk_ptr[0]);
+  FH_mount(&sDisk[0]);
   InitW5500();
   device_data.ip_assigned_sem = xSemaphoreCreateCounting((UBaseType_t)0xFFFFFFFF, (UBaseType_t)0U);
   //device_data.ping_sem = xSemaphoreCreateBinary();

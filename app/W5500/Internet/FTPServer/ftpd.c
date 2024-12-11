@@ -161,7 +161,7 @@ int get_filesize(char* path, char *filename)
 	(void)buf_ptr;
 	(void)len;
 	char *fn; 	/* This function is assuming no_Unicode cfg.*/
-	char* fullpath[50];
+	char fullpath[100];
 //#ifdef _USE_LFN
 #if 0
 	static char lfn[_MAX_LFN + 1];
@@ -171,6 +171,10 @@ int get_filesize(char* path, char *filename)
 
 	if(*path == 0x00)
 		res = f_opendir(&dir, "3:");	// "/"
+	else if (*path == 0xFF)
+	{
+		res = f_opendir(&dir, ftp.workingdir);		// +
+	}
 	else
 	{
 		sprintf(fullpath, "%s%s", ftp.workingdir, path);	// +
@@ -921,13 +925,27 @@ char proc_ftpd(char * buf)
 #if defined(_FTP_DEBUG_)
 			log_i(ETH_TAG, "RETR_CMD\r\n");
 #endif
-			if(strlen(ftp.workingdir) == 1)
-				sprintf(ftp.filename, "/%s", arg);
+			if (slen <= 50)
+			{
+				if (arg[slen - 3] == '/')
+					arg[slen - 3] == 0x0;
+				if (*arg == '/')
+					sprintf(ftp.filename, "3:%s", (arg + 1));
+				//else if(strlen(ftp.workingdir) == 1)
+					//sprintf(ftp.filename, "/%s", arg);
+				else
+					sprintf(ftp.filename, "%s%s", ftp.workingdir, arg);
+				slen = sprintf(sendbuf, "150 Opening data channel for file downloand from server of \"%s\"\r\n", ftp.filename);
+				send(CTRL_SOCK, (uint8_t *)sendbuf, slen);
+				ftp.current_cmd = RETR_CMD;
+			}
 			else
-				sprintf(ftp.filename, "%s/%s", ftp.workingdir, arg);
-			slen = sprintf(sendbuf, "150 Opening data channel for file downloand from server of \"%s\"\r\n", ftp.filename);
-			send(CTRL_SOCK, (uint8_t *)sendbuf, slen);
-			ftp.current_cmd = RETR_CMD;
+			{
+				slen = sprintf(sendbuf, "550 File not Found\r\n");
+				send(CTRL_SOCK, (uint8_t *)sendbuf, slen);
+				ftp.current_cmd = NO_CMD;
+			}
+
 			break;
 
 		case APPE_CMD :
@@ -1024,9 +1042,17 @@ char proc_ftpd(char * buf)
 			if(slen > 3)
 			{
 				tmpstr = strrchr(arg, '/');
-				*tmpstr = 0;
+				if (tmpstr != NULL)
+				{
+					*tmpstr = 0;
 #if defined(F_FILESYSTEM)
-				slen = get_filesize(arg, tmpstr + 1);
+					slen = get_filesize(arg, tmpstr + 1);
+				}
+				else
+				{
+					char tmpsymb = 0xFF;
+					slen = get_filesize(&tmpsymb, arg);
+				}
 #else
 				slen = _MAX_SS;
 #endif
@@ -1048,11 +1074,20 @@ char proc_ftpd(char * buf)
 			arg[slen - 2] = 0x00;
 			if(slen > 3)
 			{
-				arg[slen - 3] = 0x00;
+				if (arg[slen-3] == '/')
+					arg[slen - 3] = 0x00;
 				tmpstr = strrchr(arg, '/');
-				*tmpstr = 0;
+				if (tmpstr != NULL)
+				{
+					*tmpstr = 0;
 #if defined(F_FILESYSTEM)
-				slen = get_filesize(arg, tmpstr + 1);
+					slen = get_filesize(arg, tmpstr + 1);
+				}
+				else
+				{
+					char tmpsymb = 0xFF;
+					slen = get_filesize(&tmpsymb, arg);
+				}
 #else
 				slen = 0;
 #endif
@@ -1085,15 +1120,39 @@ char proc_ftpd(char * buf)
 			arg[slen - 1] = 0x00;
 			arg[slen - 2] = 0x00;
 #if defined(F_FILESYSTEM)
-			if (f_mkdir(arg) != 0)
+			if (slen <= 50)
 			{
-				slen = sprintf(sendbuf, "550 Can't create directory. \"%s\"\r\n", arg);
+				if (slen > 3)
+				{
+					if (arg[slen - 3] == '/')
+						arg[slen -3] = 0x00;
+				}
+				tmpstr = strrchr(arg, '/');
+				if (tmpstr != NULL)
+				{
+					*tmpstr = 0;
+					if (*arg == 0)
+						sprintf(sendbuf, "%s%s", "3:", (arg + 1));
+					else
+					{
+						*tmpstr = '/';
+						sprintf(sendbuf, "%s%s", ftp.workingdir, arg);
+					}
+				}
+				else
+					sprintf(sendbuf, "%s%s", ftp.workingdir, arg);
+				if (f_mkdir(arg) != 0)
+				{
+					slen = sprintf(sendbuf, "550 Can't create directory. \"%s\"\r\n", arg);
+				}
+				else
+				{
+					slen = sprintf(sendbuf, "257 MKD command successful. \"%s\"\r\n", arg);
+					//strcpy(ftp.workingdir, arg);
+				}
 			}
 			else
-			{
-				slen = sprintf(sendbuf, "257 MKD command successful. \"%s\"\r\n", arg);
-				//strcpy(ftp.workingdir, arg);
-			}
+				slen = sprintf(sendbuf, "550 Can't create directory. Too long length\r\n");
 #else
 			slen = sprintf(sendbuf, "550 Can't create directory. Permission denied\r\n");
 #endif
@@ -1105,14 +1164,38 @@ char proc_ftpd(char * buf)
 			arg[slen - 1] = 0x00;
 			arg[slen - 2] = 0x00;
 #if defined(F_FILESYSTEM)
-			if (f_unlink(arg) != 0)
+			if (slen <= 50)
 			{
-				slen = sprintf(sendbuf, "550 Could not delete. \"%s\"\r\n", arg);
+				if (slen > 3)
+				{
+					if (arg[slen - 3] == '/')
+						arg[slen -3] = 0x00;
+				}
+				tmpstr = strrchr(arg, '/');
+				if (tmpstr != NULL)
+				{
+					*tmpstr = 0;
+					if (*arg == 0)
+						sprintf(sendbuf, "%s%s", "3:", (arg + 1));
+					else
+					{
+						*tmpstr = '/';
+						sprintf(sendbuf, "%s%s", ftp.workingdir, arg);
+					}
+				}
+				else
+					sprintf(sendbuf, "%s%s", ftp.workingdir, arg);
+				if (f_unlink(sendbuf) != 0)
+				{
+					slen = sprintf(sendbuf, "550 Could not delete. \"%s\"\r\n", arg);
+				}
+				else
+				{
+					slen = sprintf(sendbuf, "250 Deleted. \"%s\"\r\n", arg);
+				}
 			}
-			else
-			{
-				slen = sprintf(sendbuf, "250 Deleted. \"%s\"\r\n", arg);
-			}
+			else 
+				slen = sprintf(sendbuf, "550 Can't delete directory or file. Too long length\r\n");
 #else
 			slen = sprintf(sendbuf, "550 Could not delete. Permission denied\r\n");
 #endif
